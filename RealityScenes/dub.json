@@ -12,18 +12,18 @@
 	"versions": [
 		"SDL_3_2"
 	],
-	"lflags": [
-		"-L/Library/Frameworks/SDL3.framework"
-	],
 	"buildTypes": {
 		"desktop-development": {
-			"vesions": ["Development", "Desktop"]
+			"versions": ["Development", "Desktop"],
+			"lflags": [
+				"-L/Library/Frameworks/SDL3.framework"
+			]
 		},
 		"vr-development": {
-			"vesions": ["Development", "VR"]
+			"versions": ["Development", "VR"]
 		},
 		"vr-release": {
-			"vesions": ["Release", "VR"]
+			"versions": ["Release", "VR"]
 		}
 	}
 }
