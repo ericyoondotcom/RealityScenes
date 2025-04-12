@@ -1,0 +1,16 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/realityscenes
+realityscenes.so
+realityscenes.dylib
+realityscenes.dll
+realityscenes.a
+realityscenes.lib
+realityscenes-test-*
+*.exe
+*.pdb
+*.o
+*.obj
+*.lst
