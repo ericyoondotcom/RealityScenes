@@ -9,7 +9,7 @@ vr-release: dlang-vr-release android-install
 dlang-desktop-development:
 	dub run --build=desktop-development
 dlang-vr-development:
-	dub build --build=vr-development
+	ldc2 -mtriple=aarch64--linux-android29 $(SOURCES)
 dlang-vr-release:
 	dub build --build=vr-release
 

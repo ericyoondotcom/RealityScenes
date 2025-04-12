@@ -19,4 +19,3 @@ void main()
 		SDL_RenderPresent(controller.renderer);
 	}
 }
-
