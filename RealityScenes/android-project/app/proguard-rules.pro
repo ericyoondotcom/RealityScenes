@@ -16,7 +16,7 @@
 #   public *;
 #}
 
--keep,includedescriptorclasses,allowoptimization class org.libsdl.app.SDLActivity {
+-keep,includedescriptorclasses,allowoptimization class com.yoonicode.realityscenes.SDLActivity {
     java.lang.String nativeGetHint(java.lang.String); # Java-side doesn't use this, so it gets minified, but C-side still tries to register it
     java.lang.String clipboardGetText();
     boolean clipboardHasText();
@@ -52,7 +52,7 @@
     boolean showFileDialog(java.lang.String[], boolean, boolean, int);
 }
 
--keep,includedescriptorclasses,allowoptimization class org.libsdl.app.HIDDeviceManager {
+-keep,includedescriptorclasses,allowoptimization class com.yoonicode.realityscenes.HIDDeviceManager {
     void closeDevice(int);
     boolean initialize(boolean, boolean);
     boolean openDevice(int);
@@ -60,13 +60,13 @@
     int writeReport(int, byte[], boolean);
 }
 
--keep,includedescriptorclasses,allowoptimization class org.libsdl.app.SDLAudioManager {
+-keep,includedescriptorclasses,allowoptimization class com.yoonicode.realityscenes.SDLAudioManager {
     void registerAudioDeviceCallback();
     void unregisterAudioDeviceCallback();
     void audioSetThreadPriority(boolean, int);
 }
 
--keep,includedescriptorclasses,allowoptimization class org.libsdl.app.SDLControllerManager {
+-keep,includedescriptorclasses,allowoptimization class com.yoonicode.realityscenes.SDLControllerManager {
     void pollInputDevices();
     void pollHapticDevices();
     void hapticRun(int, float, int);
