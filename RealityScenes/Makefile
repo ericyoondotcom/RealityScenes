@@ -2,7 +2,7 @@ SDL_SOURCE_PATH = ~/Documents/Permanent/SDL3
 SOURCES = $(shell find cpp -name '*.cpp' -o -name '*.h')
 
 desktop: cpp-desktop
-vr: cpp-vr android-install
+vr: copy-cpp symlink-sdl android-install
 
 cpp-desktop:
 	clang $(SOURCES) -o realityscenes-desktop `pkg-config --libs sdl3`
@@ -10,18 +10,18 @@ cpp-desktop:
 	./realityscenes-desktop
 
 copy-cpp:
-	cp *.cpp android-project/app/jni/src
-	cp *.h android-project/app/jni/src
+	cp $(SOURCES) android-project/app/jni/src
 
-symlink:
 	# Link SDL3 source for Android build
+symlink-sdl:
 	ln -sf $(SDL_SOURCE_PATH) android-project/app/jni
 
-android-build: symlink
+android-build:
 	cd android-project && ./gradlew build
 
-android-install: symlink
+android-install:
 	cd android-project && ./gradlew installDebug
+	adb shell am start -n com.yoonicode.realityscenes/com.yoonicode.realityscenes.RealityScenes
 
 clean:
 	unlink -f android-project/app/jni/SDL3

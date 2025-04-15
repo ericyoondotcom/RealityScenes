@@ -6,7 +6,7 @@ LOCAL_MODULE := main
 
 # Add your application source files here...
 LOCAL_SRC_FILES := \
-    YourSourceHere.c
+    app.cpp
 
 SDL_PATH := ../SDL  # SDL
 

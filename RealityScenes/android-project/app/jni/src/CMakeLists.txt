@@ -24,6 +24,6 @@ Possible ways to fix this:
 endif()
 
 add_library(main SHARED
-    YourSourceHere.c
+    app.cpp
 )
 target_link_libraries(main PRIVATE SDL3::SDL3)
