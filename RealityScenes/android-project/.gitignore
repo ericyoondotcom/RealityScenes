@@ -33,3 +33,5 @@ google-services.json
 *.hprof
 
 app/jni/SDL3
+app/jni/src/*.cpp
+app/jni/src/*.h
