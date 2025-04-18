@@ -3,12 +3,12 @@ plugins {
 }
 
 android {
-    namespace 'org.khronos.OpenXRTutorialChapter2'
+    namespace 'com.yoonicode.RealityScenes'
     compileSdk 29
     ndkVersion '23.1.7779620'
 
     defaultConfig {
-        applicationId "org.khronos.OpenXRTutorialChapter2"
+        applicationId "com.yoonicode.RealityScenes"
         minSdk 24
         targetSdk 29
         versionCode 1
