@@ -13,6 +13,15 @@ android {
         targetSdk 29
         versionCode 1
         versionName "1.0"
+//        ndk {
+//            abiFilters 'arm64-v8a' // Specify Meta Quest 3's architecture
+//        }
+//        externalNativeBuild { // Add CMake arguments here
+//            cmake {
+//                // Pass ABI filter and STL type to CMake
+//                arguments "-DANDROID_STL=c++_shared", "-DCMAKE_ANDROID_ARCH_ABI=${android.defaultConfig.ndk.abiFilters.iterator().next()}"
+//            }
+//        }
     }
 
     buildTypes {

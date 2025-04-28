@@ -1,4 +1,3 @@
-
 #include <DebugOutput.h>
 #include <GraphicsAPI_OpenGL_ES.h>
 #include <OpenXRDebugUtils.h>
@@ -275,7 +274,10 @@ private:
             // The timeout depends on whether the application is active.
             const int timeoutMilliseconds = (!androidAppState.resumed && !m_sessionRunning && androidApp->destroyRequested == 0) ? -1 : 0;
             if (ALooper_pollOnce(timeoutMilliseconds, nullptr, &events, (void**)&source) >= 0) {
-                if (source != nullptr) {
+                if (source != nullptr && source->process != nullptr) {
+                    // EY NOTE:
+                    // If you get a SIGILL exception on this line, just know that
+                    // it only happens in debug mode; in release mode it's fine.
                     source->process(androidApp, source);
                 }
             } else {
