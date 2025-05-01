@@ -7,6 +7,11 @@ struct SwapchainInfo {
     std::vector<void *> imageViews;
 };
 
+struct CameraConstants {
+    XrMatrix4x4f viewProj;
+    XrMatrix4x4f modelViewProj;
+    XrMatrix4x4f model;
+};
 
 #endif //REAITYSCENES_EY_SHARED_H
 

@@ -461,7 +461,7 @@ private:
         OPENXR_CHECK(xrDestroySpace(m_localSpace), "Failed to destroy Space.")
     }
     void UpdateScene() {
-        
+
     }
     void RenderFrame()
     {
@@ -582,7 +582,7 @@ private:
             XrMatrix4x4f_CreateTranslationRotationScale(&toView, &views[i].pose.position, &views[i].pose.orientation, &scale1m);
             XrMatrix4x4f view;
             XrMatrix4x4f_InvertRigidBody(&view, &toView);
-            XrMatrix4x4f_Multiply(&cameraConstants.viewProj, &proj, &view);
+            XrMatrix4x4f_Multiply(&viewProj, &proj, &view);
 
 
             // EY RENDER OUR SCENE
@@ -606,38 +606,12 @@ private:
     }
     void RenderScene()
     {
-        // TODO move these into the model
-        // In fact, move everything here into a Render() function in the model
-        XrVector3f scale = {1.0f, 1.0f, 1.0f};
-        XrPosef pose = {
-            {0.0f, 0.0f, 0.0f, 1.0f}, // ROTATION (quaternion)
-            {0.0f, -m_viewHeightM + 0.9f, -2.0f} // POSITION
-        };
-
-        XrMatrix4x4f_CreateTranslationRotationScale(&cameraConstants.model, &pose.position, &pose.orientation, &scale);
-
-        XrMatrix4x4f_Multiply(&cameraConstants.modelViewProj, &cameraConstants.viewProj, &cameraConstants.model);
-
         for(EYMesh* mesh : currentScene->meshes) {
-            m_graphicsAPI->SetPipeline(mesh->shader->pipeline);
-
-            m_graphicsAPI->SetBufferData(m_uniformBuffer_Camera, 0, sizeof(CameraConstants), &cameraConstants);
-            m_graphicsAPI->SetDescriptor({0, m_uniformBuffer_Camera, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX, false, 0, sizeof(CameraConstants)});
-
-            m_graphicsAPI->UpdateDescriptors();
-
-            m_graphicsAPI->SetVertexBuffers(&mesh->vertexBuffer, 1);
-            m_graphicsAPI->SetIndexBuffer(mesh->indexBuffer);
-            m_graphicsAPI->DrawIndexed(mesh->numTriangles * 3);
+            mesh->Render(viewProj);
         }
     }
 
-    struct CameraConstants {
-        XrMatrix4x4f viewProj;
-        XrMatrix4x4f modelViewProj;
-        XrMatrix4x4f model;
-    };
-    CameraConstants cameraConstants;
+    XrMatrix4x4f viewProj;
     XrVector4f normals[6] = {
             {1.00f, 0.00f, 0.00f, 0},
             {-1.00f, 0.00f, 0.00f, 0},
@@ -648,7 +622,6 @@ private:
 
     void CreateResources()
     {
-        m_uniformBuffer_Camera = m_graphicsAPI->CreateBuffer({GraphicsAPI::BufferCreateInfo::Type::UNIFORM, 0, sizeof(CameraConstants), nullptr});
 
 
         // EY GENERATE SHADERS
@@ -694,7 +667,12 @@ private:
                     8,
                     cubeIndices,
                     12,
-                    cubeNormals
+                    cubeNormals,
+                    {
+                        {0.0f, 0.0f, 0.0f, 1.0f}, // ROTATION (quaternion)
+                        {0.0f, -m_viewHeightM + 0.9f, -2.0f} // POSITION
+                    },
+                    {1.0f, 1.0f, 1.0f}
             )
         };
 
@@ -703,7 +681,6 @@ private:
     void DestroyResources()
     {
         delete m_phongShader;
-        m_graphicsAPI->DestroyBuffer(m_uniformBuffer_Camera);
     }
 private:
 
@@ -744,8 +721,6 @@ private:
     XrSpace m_localSpace = XR_NULL_HANDLE;
 
     float m_viewHeightM = 1.5f;
-
-    void *m_uniformBuffer_Camera = nullptr;
 
 public:
     // Stored pointer to the android_app structure from android_main().

@@ -28,7 +28,13 @@ public:
     GraphicsAPI* graphicsApi;
     void* vertexBuffer;
     void* indexBuffer;
+    void* cameraUniformBuffer;
     uint numTriangles;
+    XrPosef pose;
+    XrVector3f scale;
+    CameraConstants cameraConstants;
+
+
 
     EYMesh(
             GraphicsAPI* graphicsApi,
@@ -37,10 +43,13 @@ public:
             uint numVertices,
             uint32_t *indices,
             uint numTriangles,
-            float *normals
+            float *normals,
+            XrPosef pose,
+            XrVector3f scale
         );
     ~EYMesh();
-    void Render(XrPosef pose, XrVector3f scale, XrVector3f color);
+    void SetPose(XrPosef pose);
+    void Render(XrMatrix4x4f viewProj);
 };
 
 class EYScene {

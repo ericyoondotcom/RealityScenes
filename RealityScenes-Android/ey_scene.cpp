@@ -61,11 +61,17 @@ EYMesh::EYMesh(
         uint numVertices,
         uint32_t *indices,
         uint numTriangles,
-        float *normals
+        float *normals,
+        XrPosef pose,
+        XrVector3f scale
 ) {
     this->numTriangles = numTriangles;
     this->graphicsApi = graphicsApi;
     this->shader = shader;
+    this->pose = pose;
+    this->scale = scale;
+    this->cameraUniformBuffer = graphicsApi->CreateBuffer({GraphicsAPI::BufferCreateInfo::Type::UNIFORM, 0, sizeof(CameraConstants), nullptr});
+
 
     float* allData = new float[numVertices * 6];
     for(int i = 0; i < numVertices; i++) {
@@ -95,13 +101,28 @@ EYMesh::EYMesh(
     delete[] allData;
 }
 
-void EYMesh::Render(XrPosef pose, XrVector3f scale, XrVector3f color) {
-    
+void EYMesh::Render(XrMatrix4x4f viewProj) {
+    cameraConstants.viewProj = viewProj;
+    XrMatrix4x4f_CreateTranslationRotationScale(&cameraConstants.model, &pose.position, &pose.orientation, &scale);
+    XrMatrix4x4f_Multiply(&cameraConstants.modelViewProj, &cameraConstants.viewProj, &cameraConstants.model);
+
+    graphicsApi->SetPipeline(shader->pipeline);
+    graphicsApi->SetBufferData(cameraUniformBuffer, 0, sizeof(CameraConstants), &cameraConstants);
+    graphicsApi->SetDescriptor({0, cameraUniformBuffer, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX, false, 0, sizeof(CameraConstants)});
+    graphicsApi->UpdateDescriptors();
+    graphicsApi->SetVertexBuffers(&vertexBuffer, 1);
+    graphicsApi->SetIndexBuffer(indexBuffer);
+    graphicsApi->DrawIndexed(numTriangles * 3);
 }
 
 EYMesh::~EYMesh() {
     graphicsApi->DestroyBuffer(indexBuffer);
     graphicsApi->DestroyBuffer(vertexBuffer);
+    graphicsApi->DestroyBuffer(cameraUniformBuffer);
+}
+
+void EYMesh::SetPose(XrPosef pose) {
+    this->pose = pose;
 }
 
 EYScene::EYScene(std::vector<EYMesh *> meshes) {
