@@ -29,6 +29,8 @@ public:
     void* vertexBuffer;
     void* indexBuffer;
     void* cameraUniformBuffer;
+    void* lightPositionBuffer;
+    void* viewPositionBuffer;
     uint numTriangles;
     XrPosef pose;
     XrVector3f scale;
@@ -49,7 +51,7 @@ public:
         );
     ~EYMesh();
     void SetPose(XrPosef pose);
-    void Render(XrMatrix4x4f viewProj);
+    void Render(XrMatrix4x4f viewProj, XrVector3f lightPosition);
 };
 
 class EYScene {

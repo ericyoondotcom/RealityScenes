@@ -42,9 +42,11 @@ void EYShader::CreatePipeline(std::vector<SwapchainInfo> colorSwapchainInfos, st
     pipelineCI.colorBlendState = {false, GraphicsAPI::LogicOp::NO_OP, {{true, GraphicsAPI::BlendFactor::SRC_ALPHA, GraphicsAPI::BlendFactor::ONE_MINUS_SRC_ALPHA, GraphicsAPI::BlendOp::ADD, GraphicsAPI::BlendFactor::ONE, GraphicsAPI::BlendFactor::ZERO, GraphicsAPI::BlendOp::ADD, (GraphicsAPI::ColorComponentBit)15}}, {0.0f, 0.0f, 0.0f, 0.0f}};
     pipelineCI.colorFormats = {colorSwapchainInfos[0].swapchainFormat};
     pipelineCI.depthFormat = depthSwapchainInfos[0].swapchainFormat;
-    pipelineCI.layout = {{0, nullptr, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX},
-                         {1, nullptr, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX},
-                         {2, nullptr, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::FRAGMENT}};
+    pipelineCI.layout = {
+        {0, nullptr, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX},
+        {1, nullptr, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::FRAGMENT},
+        {2, nullptr, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::FRAGMENT}
+    };
     pipeline = graphicsApi->CreatePipeline(pipelineCI);
 }
 
@@ -71,7 +73,8 @@ EYMesh::EYMesh(
     this->pose = pose;
     this->scale = scale;
     this->cameraUniformBuffer = graphicsApi->CreateBuffer({GraphicsAPI::BufferCreateInfo::Type::UNIFORM, 0, sizeof(CameraConstants), nullptr});
-
+    this->lightPositionBuffer = graphicsApi->CreateBuffer({GraphicsAPI::BufferCreateInfo::Type::UNIFORM, 0, sizeof(XrVector3f), nullptr});
+    this->viewPositionBuffer = graphicsApi->CreateBuffer({GraphicsAPI::BufferCreateInfo::Type::UNIFORM, 0, sizeof(XrVector3f), nullptr});
 
     float* allData = new float[numVertices * 6];
     for(int i = 0; i < numVertices; i++) {
@@ -101,14 +104,26 @@ EYMesh::EYMesh(
     delete[] allData;
 }
 
-void EYMesh::Render(XrMatrix4x4f viewProj) {
+void EYMesh::Render(XrMatrix4x4f viewProj, XrVector3f lightPosition) {
+    XR_TUT_LOG(
+            std::to_string(lightPosition.x) + ", " +
+            std::to_string(lightPosition.y) + ", " +
+            std::to_string(lightPosition.z)
+    )
     cameraConstants.viewProj = viewProj;
     XrMatrix4x4f_CreateTranslationRotationScale(&cameraConstants.model, &pose.position, &pose.orientation, &scale);
     XrMatrix4x4f_Multiply(&cameraConstants.modelViewProj, &cameraConstants.viewProj, &cameraConstants.model);
 
     graphicsApi->SetPipeline(shader->pipeline);
     graphicsApi->SetBufferData(cameraUniformBuffer, 0, sizeof(CameraConstants), &cameraConstants);
+    graphicsApi->SetBufferData(lightPositionBuffer, 0, sizeof(XrVector3f), &lightPosition);
+    graphicsApi->SetBufferData(viewPositionBuffer, 0, sizeof(XrVector3f), &pose.position);
+
+    // Fix: Use separate binding points (0, 1, 2) with zero offsets for each buffer
     graphicsApi->SetDescriptor({0, cameraUniformBuffer, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX, false, 0, sizeof(CameraConstants)});
+    graphicsApi->SetDescriptor({1, lightPositionBuffer, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::FRAGMENT, false, 0, sizeof(XrVector3f)});
+    graphicsApi->SetDescriptor({2, viewPositionBuffer, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::FRAGMENT, false, 0, sizeof(XrVector3f)});
+    
     graphicsApi->UpdateDescriptors();
     graphicsApi->SetVertexBuffers(&vertexBuffer, 1);
     graphicsApi->SetIndexBuffer(indexBuffer);
@@ -119,6 +134,8 @@ EYMesh::~EYMesh() {
     graphicsApi->DestroyBuffer(indexBuffer);
     graphicsApi->DestroyBuffer(vertexBuffer);
     graphicsApi->DestroyBuffer(cameraUniformBuffer);
+    graphicsApi->DestroyBuffer(lightPositionBuffer);
+    graphicsApi->DestroyBuffer(viewPositionBuffer);
 }
 
 void EYMesh::SetPose(XrPosef pose) {

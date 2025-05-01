@@ -59,6 +59,7 @@ public:
 private:
     EYShader* m_phongShader;
     EYScene* currentScene;
+    XrVector3f lightPosition = {0.0f, 0.0f, 5.0f};
 
     struct RenderLayerInfo {
         XrTime predictedDisplayTime;
@@ -461,7 +462,24 @@ private:
         OPENXR_CHECK(xrDestroySpace(m_localSpace), "Failed to destroy Space.")
     }
     void UpdateScene() {
-
+        // Rotate the light direction around the Y axis
+        static float angle = 0.0f;
+        angle += 0.01f; // Adjust rotation speed as needed
+        
+        // Calculate new light direction coordinates
+//        lightPosition.x = cosf(angle);
+//        lightPosition.z = sinf(angle);
+//
+//        // Keep the y component constant (or you could modify it too)
+//        lightPosition.y = 1.0f;
+//
+//        // Normalize the light direction vector
+//        float length = sqrtf(lightPosition.x * lightPosition.x +
+//                             lightPosition.y * lightPosition.y +
+//                             lightPosition.z * lightPosition.z);
+//        lightPosition.x /= length;
+//        lightPosition.y /= length;
+//        lightPosition.z /= length;
     }
     void RenderFrame()
     {
@@ -607,7 +625,7 @@ private:
     void RenderScene()
     {
         for(EYMesh* mesh : currentScene->meshes) {
-            mesh->Render(viewProj);
+            mesh->Render(viewProj, lightPosition);
         }
     }
 
