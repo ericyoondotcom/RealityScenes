@@ -20,17 +20,17 @@ layout(std140, binding = 2) uniform ViewPositionStruct {
 out vec4 color;
 
 void main() {
-    // Use the uniform values instead of hardcoded ones
-    vec3 lightPosition = vec3(1, 1, 0);
-    vec3 viewPosition = vec3(0, 0, 0);
+    vec3 lightPosition = vec3(lpx, lpy, lpz);
+    vec3 viewPosition = vec3(vpx, vpy, vpz);
 
-    float AMBIENT_STRENGTH = 0.07;
-    float DIFFUSE_STRENGTH = 0.5;
+
+    float AMBIENT_STRENGTH = 0.04;
+    float DIFFUSE_STRENGTH = 0.3;
     float SPECULAR_STRENGTH = 0.7;
     float SHININESS = 32.0;
-    vec3 AMBIENT_COLOR = vec3(1.0, 0.0, 0.0);
-    vec3 DIFFUSE_COLOR = vec3(0.0, 0.0, 0.0);
-    vec3 SPECULAR_COLOR = vec3(0.0, 0.0, 1.0);
+    vec3 AMBIENT_COLOR = vec3(1.0, 1.0, 1.0);
+    vec3 DIFFUSE_COLOR = vec3(1.0, 1.0, 1.0);
+    vec3 SPECULAR_COLOR = vec3(1.0, 0.3, 0.0);
 
     vec3 normal = normalize(vertexNormal);
     vec3 lightDir = normalize(lightPosition - vertexPosition);

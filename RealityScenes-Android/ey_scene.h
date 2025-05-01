@@ -36,8 +36,6 @@ public:
     XrVector3f scale;
     CameraConstants cameraConstants;
 
-
-
     EYMesh(
             GraphicsAPI* graphicsApi,
             EYShader *shader,
@@ -51,7 +49,7 @@ public:
         );
     ~EYMesh();
     void SetPose(XrPosef pose);
-    void Render(XrMatrix4x4f viewProj, XrVector3f lightPosition);
+    void Render(XrMatrix4x4f viewProj, XrVector3f lightPosition, XrVector3f viewPosition);
 };
 
 class EYScene {

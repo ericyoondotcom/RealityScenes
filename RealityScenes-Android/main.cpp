@@ -59,7 +59,7 @@ public:
 private:
     EYShader* m_phongShader;
     EYScene* currentScene;
-    XrVector3f lightPosition = {0.0f, 0.0f, 5.0f};
+    XrVector3f lightPosition = {0.0f, 0.0f, 0.0f};
 
     struct RenderLayerInfo {
         XrTime predictedDisplayTime;
@@ -467,19 +467,11 @@ private:
         angle += 0.01f; // Adjust rotation speed as needed
         
         // Calculate new light direction coordinates
-//        lightPosition.x = cosf(angle);
-//        lightPosition.z = sinf(angle);
-//
-//        // Keep the y component constant (or you could modify it too)
-//        lightPosition.y = 1.0f;
-//
-//        // Normalize the light direction vector
-//        float length = sqrtf(lightPosition.x * lightPosition.x +
-//                             lightPosition.y * lightPosition.y +
-//                             lightPosition.z * lightPosition.z);
-//        lightPosition.x /= length;
-//        lightPosition.y /= length;
-//        lightPosition.z /= length;
+        lightPosition.x = cosf(angle) * 10;
+        lightPosition.z = sinf(angle) * 10;
+
+        // Keep the y component constant (or you could modify it too)
+        lightPosition.y = 3.0f;
     }
     void RenderFrame()
     {
@@ -601,6 +593,7 @@ private:
             XrMatrix4x4f view;
             XrMatrix4x4f_InvertRigidBody(&view, &toView);
             XrMatrix4x4f_Multiply(&viewProj, &proj, &view);
+            viewPosition = views[i].pose.position;
 
 
             // EY RENDER OUR SCENE
@@ -625,11 +618,12 @@ private:
     void RenderScene()
     {
         for(EYMesh* mesh : currentScene->meshes) {
-            mesh->Render(viewProj, lightPosition);
+            mesh->Render(viewProj, lightPosition, viewPosition);
         }
     }
 
     XrMatrix4x4f viewProj;
+    XrVector3f  viewPosition;
     XrVector4f normals[6] = {
             {1.00f, 0.00f, 0.00f, 0},
             {-1.00f, 0.00f, 0.00f, 0},
@@ -667,14 +661,14 @@ private:
                 1, 3, 7, 1, 7, 5
         };
         float* cubeNormals = new float[24] {
-                0, 0, 0,
-                1, 0, 0,
-                0, 1, 0,
-                1, 1, 0,
-                0, 0, 1,
-                1, 0, 1,
-                0, 1, 1,
-                1, 1, 1
+             0.577f,  0.577f,  0.577f,  // Vertex 0 (+X, +Y, +Z)
+             0.577f,  0.577f, -0.577f,  // Vertex 1 (+X, +Y, -Z)
+             0.577f, -0.577f,  0.577f,  // Vertex 2 (+X, -Y, +Z)
+             0.577f, -0.577f, -0.577f,  // Vertex 3 (+X, -Y, -Z)
+            -0.577f,  0.577f,  0.577f,  // Vertex 4 (-X, +Y, +Z)
+            -0.577f,  0.577f, -0.577f,  // Vertex 5 (-X, +Y, -Z)
+            -0.577f, -0.577f,  0.577f,  // Vertex 6 (-X, -Y, +Z)
+            -0.577f, -0.577f, -0.577f   // Vertex 7 (-X, -Y, -Z)
         };
 
         std::vector<EYMesh*> meshes = {

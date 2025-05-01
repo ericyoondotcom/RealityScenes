@@ -43,9 +43,9 @@ void EYShader::CreatePipeline(std::vector<SwapchainInfo> colorSwapchainInfos, st
     pipelineCI.colorFormats = {colorSwapchainInfos[0].swapchainFormat};
     pipelineCI.depthFormat = depthSwapchainInfos[0].swapchainFormat;
     pipelineCI.layout = {
-        {0, nullptr, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX},
-        {1, nullptr, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::FRAGMENT},
-        {2, nullptr, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::FRAGMENT}
+        {0, nullptr, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX}, // CameraConstants
+        {1, nullptr, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::FRAGMENT}, // lightPosition
+        {2, nullptr, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::FRAGMENT}  // viewPosition
     };
     pipeline = graphicsApi->CreatePipeline(pipelineCI);
 }
@@ -104,26 +104,24 @@ EYMesh::EYMesh(
     delete[] allData;
 }
 
-void EYMesh::Render(XrMatrix4x4f viewProj, XrVector3f lightPosition) {
-    XR_TUT_LOG(
-            std::to_string(lightPosition.x) + ", " +
-            std::to_string(lightPosition.y) + ", " +
-            std::to_string(lightPosition.z)
-    )
+void EYMesh::Render(XrMatrix4x4f viewProj, XrVector3f lightPosition, XrVector3f viewPosition) {
     cameraConstants.viewProj = viewProj;
+
     XrMatrix4x4f_CreateTranslationRotationScale(&cameraConstants.model, &pose.position, &pose.orientation, &scale);
     XrMatrix4x4f_Multiply(&cameraConstants.modelViewProj, &cameraConstants.viewProj, &cameraConstants.model);
 
     graphicsApi->SetPipeline(shader->pipeline);
+
+    // Update uniform buffers
     graphicsApi->SetBufferData(cameraUniformBuffer, 0, sizeof(CameraConstants), &cameraConstants);
     graphicsApi->SetBufferData(lightPositionBuffer, 0, sizeof(XrVector3f), &lightPosition);
-    graphicsApi->SetBufferData(viewPositionBuffer, 0, sizeof(XrVector3f), &pose.position);
+    graphicsApi->SetBufferData(viewPositionBuffer, 0, sizeof(XrVector3f), &viewPosition);
 
-    // Fix: Use separate binding points (0, 1, 2) with zero offsets for each buffer
+    // Set descriptors
     graphicsApi->SetDescriptor({0, cameraUniformBuffer, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX, false, 0, sizeof(CameraConstants)});
     graphicsApi->SetDescriptor({1, lightPositionBuffer, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::FRAGMENT, false, 0, sizeof(XrVector3f)});
     graphicsApi->SetDescriptor({2, viewPositionBuffer, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::FRAGMENT, false, 0, sizeof(XrVector3f)});
-    
+
     graphicsApi->UpdateDescriptors();
     graphicsApi->SetVertexBuffers(&vertexBuffer, 1);
     graphicsApi->SetIndexBuffer(indexBuffer);
