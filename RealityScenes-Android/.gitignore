@@ -3,4 +3,3 @@ local.properties
 .idea
 app/build
 app/.cxx
-app/src/main/assets
