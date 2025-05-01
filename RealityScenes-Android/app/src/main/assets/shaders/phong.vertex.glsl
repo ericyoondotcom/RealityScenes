@@ -12,6 +12,7 @@ layout(location=1) in vec3 normals;
 out vec3 vertexColor;
 
 void main() {
-    gl_Position = modelViewProj * vec4(position, 1.0f);
-    vertexColor = vec3(1.0f, 0.0f, 1.0f);
+    vec4 TEMP_DELETE_ME = modelViewProj * vec4(position, 1.0f);
+    gl_Position = vec4(position.x, position.y, position.z - 3.0f, 1.0f);
+    vertexColor = vec3(1.0f, 0.0f, 0.0f);
 }

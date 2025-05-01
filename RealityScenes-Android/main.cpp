@@ -606,28 +606,71 @@ private:
     {
         // TODO move these into the model
         // In fact, move everything here into a Render() function in the model
-        XrVector3f scale = {10.0f, 10.0f, 10.0f};
+        XrVector3f scale = {1.0f, 1.0f, 1.0f};
 
         XrMatrix4x4f_CreateTranslationRotationScale(&cameraConstants.model, &pose.position, &pose.orientation, &scale);
 
         XrMatrix4x4f_Multiply(&cameraConstants.modelViewProj, &cameraConstants.viewProj, &cameraConstants.model);
 
-        int meshNum = 0;
+        m_graphicsAPI->SetPipeline(m_phongShader->pipeline);
+        m_graphicsAPI->SetBufferData(m_uniformBuffer_Camera, 0, sizeof(CameraConstants), &cameraConstants);
+        m_graphicsAPI->SetDescriptor({0, m_uniformBuffer_Camera, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX, false, 0, sizeof(CameraConstants)});
+        m_graphicsAPI->UpdateDescriptors();
 
-        for(EYMesh* mesh : currentScene->meshes) {
-            m_graphicsAPI->SetPipeline(mesh->shader->pipeline);
+        // TEST: RENDER A TRIANGLE
+        // Use packed vertex data with stride information
+        float* vertexData = new float[18] {
+            // Position (XYZ)     Normal (XYZ)
+            -0.5f, -0.5f, 0.0f,   1.0f, 0.0f, 0.0f,  // Bottom left (red)
+             0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,  // Bottom right (green)
+             0.0f,  0.5f, 0.0f,   0.0f, 0.0f, 1.0f   // Top center (blue)
+        };
+        
+        void* vertexBuffer = m_graphicsAPI->CreateBuffer({
+            GraphicsAPI::BufferCreateInfo::Type::VERTEX,
+            sizeof(float) * 6,  // 6 floats per vertex (3 for position, 3 for normal)
+            3,                  // 3 vertices in total
+            vertexData
+        });
+        
+        uint32_t* indexData = new uint32_t[3] {0, 1, 2};
+        void* indexBuffer = m_graphicsAPI->CreateBuffer({
+            GraphicsAPI::BufferCreateInfo::Type::INDEX,
+            sizeof(uint32_t),
+            3,
+            indexData
+        });
+        
+        // Make sure we're using the right pipeline and shader
+        m_graphicsAPI->SetPipeline(m_phongShader->pipeline);
+        
+        // Debug output to verify the buffers are created
+        XR_TUT_LOG("Vertex buffer: " << vertexBuffer << ", Index buffer: " << indexBuffer);
+        
+        // Set vertex buffers and draw
+        m_graphicsAPI->SetVertexBuffers(&vertexBuffer, 1);
+        m_graphicsAPI->SetIndexBuffer(indexBuffer);
+        m_graphicsAPI->DrawIndexed(3);
+        XR_TUT_LOG("Rendered triangle");
+        
+        // Clean up allocated buffers and data
+        m_graphicsAPI->DestroyBuffer(vertexBuffer);
+        m_graphicsAPI->DestroyBuffer(indexBuffer);
+        delete[] vertexData;
+        delete[] indexData;
 
-            m_graphicsAPI->SetBufferData(m_uniformBuffer_Camera, 0, sizeof(CameraConstants), &cameraConstants);
-            m_graphicsAPI->SetDescriptor({0, m_uniformBuffer_Camera, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX, false, 0, sizeof(CameraConstants)});
-
-            m_graphicsAPI->UpdateDescriptors();
-
-            m_graphicsAPI->SetVertexBuffers(&mesh->vertexBuffer, 1);
-            m_graphicsAPI->SetIndexBuffer(mesh->indexBuffer);
-            m_graphicsAPI->DrawIndexed(mesh->numTriangles * 3);
-
-            meshNum++;
-        }
+//        for(EYMesh* mesh : currentScene->meshes) {
+//            m_graphicsAPI->SetPipeline(mesh->shader->pipeline);
+//
+//            m_graphicsAPI->SetBufferData(m_uniformBuffer_Camera, 0, sizeof(CameraConstants), &cameraConstants);
+//            m_graphicsAPI->SetDescriptor({0, m_uniformBuffer_Camera, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX, false, 0, sizeof(CameraConstants)});
+//
+//            m_graphicsAPI->UpdateDescriptors();
+//
+//            m_graphicsAPI->SetVertexBuffers(&mesh->vertexBuffer, 1);
+//            m_graphicsAPI->SetIndexBuffer(mesh->indexBuffer);
+//            m_graphicsAPI->DrawIndexed(mesh->numTriangles * 3);
+//        }
     }
 
     struct CameraConstants {
@@ -653,8 +696,6 @@ private:
         m_phongShader = new EYShader(m_graphicsAPI, "shaders/phong.vertex.glsl", "shaders/phong.fragment.glsl");
         m_phongShader->CreateShaders(androidApp);
         m_phongShader->CreatePipeline(m_colorSwapchainInfos, m_depthSwapchainInfos);
-
-        XR_TUT_LOG("Created pipelines!");
 
         // EY GENERATE SCENE
         float* cubeVertices = new float[24] {
