@@ -27,8 +27,14 @@ void EYShader::CreateShaders(android_app* androidApp) {
 void EYShader::CreatePipeline(std::vector<SwapchainInfo> colorSwapchainInfos, std::vector<SwapchainInfo> depthSwapchainInfos) {
     GraphicsAPI::PipelineCreateInfo pipelineCI;
     pipelineCI.shaders = {vertexShader, fragmentShader};
-    pipelineCI.vertexInputState.attributes = {{0, 0, GraphicsAPI::VertexType::VEC4, 0, "TEXCOORD"}};
-    pipelineCI.vertexInputState.bindings = {{0, 0, 4 * sizeof(float)}};
+
+    // Replace the old attribute configuration with the one that matches your mesh data
+    pipelineCI.vertexInputState.attributes = {
+            {0, 0, GraphicsAPI::VertexType::VEC3, 0, "POSITION"},
+            {1, 0, GraphicsAPI::VertexType::VEC3, sizeof(float) * 3, "NORMAL"}
+    };
+    pipelineCI.vertexInputState.bindings = {{0, 0, 6 * sizeof(float)}};
+
     pipelineCI.inputAssemblyState = {GraphicsAPI::PrimitiveTopology::TRIANGLE_LIST, false};
     pipelineCI.rasterisationState = {false, false, GraphicsAPI::PolygonMode::FILL, GraphicsAPI::CullMode::BACK, GraphicsAPI::FrontFace::COUNTER_CLOCKWISE, false, 0.0f, 0.0f, 0.0f, 1.0f};
     pipelineCI.multisampleState = {1, false, 1.0f, 0xFFFFFFFF, false, false};
@@ -63,24 +69,26 @@ EYMesh::EYMesh(
 
     float* allData = new float[numVertices * 6];
     for(int i = 0; i < numVertices; i++) {
-        allData[i * 6 + 0] = vertices[i + 0];
-        allData[i * 6 + 1] = vertices[i + 1];
-        allData[i * 6 + 2] = vertices[i + 2];
-        allData[i * 6 + 3] = normals[i + 0];
-        allData[i * 6 + 4] = normals[i + 1];
-        allData[i * 6 + 5] = normals[i + 2];
+// Position (xyz)
+        allData[i * 6 + 0] = vertices[i * 3 + 0];
+        allData[i * 6 + 1] = vertices[i * 3 + 1];
+        allData[i * 6 + 2] = vertices[i * 3 + 2];
+// Normal (xyz)
+        allData[i * 6 + 3] = normals[i * 3 + 0];
+        allData[i * 6 + 4] = normals[i * 3 + 1];
+        allData[i * 6 + 5] = normals[i * 3 + 2];
     }
 
     vertexBuffer = graphicsApi->CreateBuffer({
         GraphicsAPI::BufferCreateInfo::Type::VERTEX,
-        sizeof(float) * 4,
-        numVertices * 6,
-        allData // TODO: do we need "&"?
+        sizeof(float) * 6,
+        numVertices * 6 * sizeof(float), // we can't use sizeof here because allData is a pointer
+        allData
     });
     indexBuffer = graphicsApi->CreateBuffer({
         GraphicsAPI::BufferCreateInfo::Type::INDEX,
         sizeof(uint32_t),
-        numTriangles * 3,
+        numTriangles * 3 * sizeof(uint32_t),
         indices
     });
 
@@ -88,7 +96,7 @@ EYMesh::EYMesh(
 }
 
 void EYMesh::Render(XrPosef pose, XrVector3f scale, XrVector3f color) {
-
+    
 }
 
 EYMesh::~EYMesh() {

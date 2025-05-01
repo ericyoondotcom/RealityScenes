@@ -41,8 +41,8 @@ public:
         while (m_applicationRunning) {
             PollSystemEvents();
             PollEvents();
-//            std::cout <<( m_sessionRunning ? "Session running" : "Session not running") << std::endl;
             if (m_sessionRunning) {
+                UpdateScene();
                 RenderFrame();
             }
         }
@@ -460,6 +460,9 @@ private:
         // Destroy the reference XrSpace.
         OPENXR_CHECK(xrDestroySpace(m_localSpace), "Failed to destroy Space.")
     }
+    void UpdateScene() {
+        
+    }
     void RenderFrame()
     {
         // Get the XrFrameState for timing and rendering info.
@@ -583,8 +586,7 @@ private:
 
 
             // EY RENDER OUR SCENE
-            RenderScene({{0.0f, 0.0f, 0.0f, 1.0f}, {0.0f, -m_viewHeightM + 0.9f, -0.7f}});
-
+            RenderScene();
 
             m_graphicsAPI->EndRendering();
 
@@ -602,75 +604,32 @@ private:
 
         return true;
     }
-    void RenderScene(XrPosef pose)
+    void RenderScene()
     {
         // TODO move these into the model
         // In fact, move everything here into a Render() function in the model
         XrVector3f scale = {1.0f, 1.0f, 1.0f};
+        XrPosef pose = {
+            {0.0f, 0.0f, 0.0f, 1.0f}, // ROTATION (quaternion)
+            {0.0f, -m_viewHeightM + 0.9f, -2.0f} // POSITION
+        };
 
         XrMatrix4x4f_CreateTranslationRotationScale(&cameraConstants.model, &pose.position, &pose.orientation, &scale);
 
         XrMatrix4x4f_Multiply(&cameraConstants.modelViewProj, &cameraConstants.viewProj, &cameraConstants.model);
 
-        m_graphicsAPI->SetPipeline(m_phongShader->pipeline);
-        m_graphicsAPI->SetBufferData(m_uniformBuffer_Camera, 0, sizeof(CameraConstants), &cameraConstants);
-        m_graphicsAPI->SetDescriptor({0, m_uniformBuffer_Camera, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX, false, 0, sizeof(CameraConstants)});
-        m_graphicsAPI->UpdateDescriptors();
+        for(EYMesh* mesh : currentScene->meshes) {
+            m_graphicsAPI->SetPipeline(mesh->shader->pipeline);
 
-        // TEST: RENDER A TRIANGLE
-        // Use packed vertex data with stride information
-        float* vertexData = new float[18] {
-            // Position (XYZ)     Normal (XYZ)
-            -0.5f, -0.5f, 0.0f,   1.0f, 0.0f, 0.0f,  // Bottom left (red)
-             0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,  // Bottom right (green)
-             0.0f,  0.5f, 0.0f,   0.0f, 0.0f, 1.0f   // Top center (blue)
-        };
-        
-        void* vertexBuffer = m_graphicsAPI->CreateBuffer({
-            GraphicsAPI::BufferCreateInfo::Type::VERTEX,
-            sizeof(float) * 6,  // 6 floats per vertex (3 for position, 3 for normal)
-            3,                  // 3 vertices in total
-            vertexData
-        });
-        
-        uint32_t* indexData = new uint32_t[3] {0, 1, 2};
-        void* indexBuffer = m_graphicsAPI->CreateBuffer({
-            GraphicsAPI::BufferCreateInfo::Type::INDEX,
-            sizeof(uint32_t),
-            3,
-            indexData
-        });
-        
-        // Make sure we're using the right pipeline and shader
-        m_graphicsAPI->SetPipeline(m_phongShader->pipeline);
-        
-        // Debug output to verify the buffers are created
-        XR_TUT_LOG("Vertex buffer: " << vertexBuffer << ", Index buffer: " << indexBuffer);
-        
-        // Set vertex buffers and draw
-        m_graphicsAPI->SetVertexBuffers(&vertexBuffer, 1);
-        m_graphicsAPI->SetIndexBuffer(indexBuffer);
-        m_graphicsAPI->DrawIndexed(3);
-        XR_TUT_LOG("Rendered triangle");
-        
-        // Clean up allocated buffers and data
-        m_graphicsAPI->DestroyBuffer(vertexBuffer);
-        m_graphicsAPI->DestroyBuffer(indexBuffer);
-        delete[] vertexData;
-        delete[] indexData;
+            m_graphicsAPI->SetBufferData(m_uniformBuffer_Camera, 0, sizeof(CameraConstants), &cameraConstants);
+            m_graphicsAPI->SetDescriptor({0, m_uniformBuffer_Camera, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX, false, 0, sizeof(CameraConstants)});
 
-//        for(EYMesh* mesh : currentScene->meshes) {
-//            m_graphicsAPI->SetPipeline(mesh->shader->pipeline);
-//
-//            m_graphicsAPI->SetBufferData(m_uniformBuffer_Camera, 0, sizeof(CameraConstants), &cameraConstants);
-//            m_graphicsAPI->SetDescriptor({0, m_uniformBuffer_Camera, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX, false, 0, sizeof(CameraConstants)});
-//
-//            m_graphicsAPI->UpdateDescriptors();
-//
-//            m_graphicsAPI->SetVertexBuffers(&mesh->vertexBuffer, 1);
-//            m_graphicsAPI->SetIndexBuffer(mesh->indexBuffer);
-//            m_graphicsAPI->DrawIndexed(mesh->numTriangles * 3);
-//        }
+            m_graphicsAPI->UpdateDescriptors();
+
+            m_graphicsAPI->SetVertexBuffers(&mesh->vertexBuffer, 1);
+            m_graphicsAPI->SetIndexBuffer(mesh->indexBuffer);
+            m_graphicsAPI->DrawIndexed(mesh->numTriangles * 3);
+        }
     }
 
     struct CameraConstants {
@@ -699,38 +658,32 @@ private:
 
         // EY GENERATE SCENE
         float* cubeVertices = new float[24] {
-            -1, -1, -1,
-            1, -1, -1,
-            1, 1, -1,
-            -1, 1, -1,
-            -1, -1, 1,
-            1, -1, 1,
-            1, 1, 1,
-            -1, 1, 1
+                0.5f, 0.5f, 0.5f,
+                0.5f, 0.5f, -0.5f,
+                0.5f, -0.5f, 0.5f,
+                0.5f, -0.5f, -0.5f,
+                -0.5f, 0.5f, 0.5f,
+                -0.5f, 0.5f, -0.5f,
+                -0.5f, -0.5f, 0.5f,
+                -0.5f, -0.5f, -0.5f
         };
         uint32_t* cubeIndices = new uint32_t[36] {
-            0, 1, 2,
-            0, 2, 3,
-            4, 5, 6,
-            4, 6, 7,
-            0, 1, 5,
-            0, 5, 4,
-            1, 2, 6,
-            1, 6, 5,
-            2, 3, 7,
-            2, 7, 6,
-            3, 0, 4,
-            3, 4, 7
+                2, 1, 0, 2, 3, 1,
+                6, 4, 5, 6, 5, 7,
+                0, 1, 5, 0, 5, 4,
+                2, 6, 7, 2, 7, 3,
+                0, 4, 6, 0, 6, 2,
+                1, 3, 7, 1, 7, 5
         };
         float* cubeNormals = new float[24] {
-            0, 0, -1,
-            0, 0, -1,
-            0, 0, -1,
-            0, 0, -1,
-            0, 0, 1,
-            0, 0, 1,
-            0, 0, 1,
-            0, 0, 1
+                0, 0, 0,
+                1, 0, 0,
+                0, 1, 0,
+                1, 1, 0,
+                0, 0, 1,
+                1, 0, 1,
+                0, 1, 1,
+                1, 1, 1
         };
 
         std::vector<EYMesh*> meshes = {
