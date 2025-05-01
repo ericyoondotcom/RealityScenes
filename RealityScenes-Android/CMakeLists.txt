@@ -49,10 +49,14 @@ FetchContent_MakeAvailable(OpenXR)
 # Files
 set(SOURCES
         "main.cpp"
+        "ey_scene.cpp"
+        "ey_shared.cpp"
         "../Common/GraphicsAPI.cpp"
         "../Common/GraphicsAPI_OpenGL_ES.cpp"
         "../Common/OpenXRDebugUtils.cpp")
 set(HEADERS
+        "ey_scene.h"
+        "ey_shared.h"
         "../Common/DebugOutput.h"
         "../Common/GraphicsAPI.h"
         "../Common/GraphicsAPI_OpenGL_ES.h"
@@ -60,8 +64,8 @@ set(HEADERS
         "../Common/OpenXRDebugUtils.h"
         "../Common/OpenXRHelper.h"
         "../Common/xr_linear_algebra.h")
-set(ES_GLSL_SHADERS "../Shaders/VertexShader_GLES.glsl"
-        "../Shaders/PixelShader_GLES.glsl")
+set(ES_GLSL_SHADERS "../Shaders/phong.vertex.glsl"
+        "../Shaders/phong.fragment.glsl")
 
 
 
@@ -74,7 +78,7 @@ target_include_directories(
         ${PROJECT_NAME}
         PRIVATE
         # In this repo
-        ../Common/
+        "../Common/"
         # From OpenXR repo
         "${openxr_SOURCE_DIR}/src/common"
         "${openxr_SOURCE_DIR}/external/include"

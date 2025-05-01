@@ -2,6 +2,8 @@
 #include <GraphicsAPI_OpenGL_ES.h>
 #include <OpenXRDebugUtils.h>
 #include <xr_linear_algebra.h>
+#include "ey_scene.h"
+#include "ey_shared.h"
 
 #define XR_DOCS_CHAPTER_VERSION XR_DOCS_CHAPTER_1_4
 
@@ -55,6 +57,8 @@ public:
     }
 
 private:
+    EYShader* m_phongShader;
+
     struct RenderLayerInfo {
         XrTime predictedDisplayTime;
         std::vector<XrCompositionLayerBaseHeader *> layers;
@@ -166,7 +170,7 @@ private:
     }
     void CreateSession() {
         XrSessionCreateInfo sessionCI{XR_TYPE_SESSION_CREATE_INFO};
-        m_graphicsAPI = std::make_unique<GraphicsAPI_OpenGL_ES>(m_xrInstance, m_systemID);
+        m_graphicsAPI = new GraphicsAPI_OpenGL_ES(m_xrInstance, m_systemID);
         sessionCI.next = m_graphicsAPI->GetGraphicsBinding();
         sessionCI.createFlags = 0;
         sessionCI.systemId = m_systemID;
@@ -562,7 +566,7 @@ private:
             m_graphicsAPI->ClearDepth(depthSwapchainInfo.imageViews[depthImageIndex], 1.0f);
 
 
-            m_graphicsAPI->SetRenderAttachments(&colorSwapchainInfo.imageViews[colorImageIndex], 1, depthSwapchainInfo.imageViews[depthImageIndex], width, height, m_pipeline);
+            m_graphicsAPI->SetRenderAttachments(&colorSwapchainInfo.imageViews[colorImageIndex], 1, depthSwapchainInfo.imageViews[depthImageIndex], width, height, m_phongShader);
             m_graphicsAPI->SetViewports(&viewport, 1);
             m_graphicsAPI->SetScissors(&scissor, 1);
 
@@ -610,7 +614,7 @@ private:
         cameraConstants.color = {color.x, color.y, color.z, 1.0};
         size_t offsetCameraUB = sizeof(CameraConstants) * renderCuboidIndex;
 
-        m_graphicsAPI->SetPipeline(m_pipeline);
+        m_graphicsAPI->SetPipeline(m_phongShader->pipeline);
 
         m_graphicsAPI->SetBufferData(m_uniformBuffer_Camera, offsetCameraUB, sizeof(CameraConstants), &cameraConstants);
         m_graphicsAPI->SetDescriptor({0, m_uniformBuffer_Camera, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX, false, offsetCameraUB, sizeof(CameraConstants)});
@@ -685,40 +689,14 @@ private:
         m_uniformBuffer_Normals = m_graphicsAPI->CreateBuffer({GraphicsAPI::BufferCreateInfo::Type::UNIFORM, 0, sizeof(normals), &normals});
 
 
-
-        // LOAD SHADERS
-        if (m_apiType == OPENGL_ES) {
-            std::string vertexSource = ReadTextFile("shaders/VertexShader_GLES.glsl", androidApp->activity->assetManager);
-            m_vertexShader = m_graphicsAPI->CreateShader({GraphicsAPI::ShaderCreateInfo::Type::VERTEX, vertexSource.data(), vertexSource.size()});
-            std::string fragmentSource = ReadTextFile("shaders/PixelShader_GLES.glsl", androidApp->activity->assetManager);
-            m_fragmentShader = m_graphicsAPI->CreateShader({GraphicsAPI::ShaderCreateInfo::Type::FRAGMENT, fragmentSource.data(), fragmentSource.size()});
-        }
-
-
-
-
-        // CREATE PIPELINE
-        GraphicsAPI::PipelineCreateInfo pipelineCI;
-        pipelineCI.shaders = {m_vertexShader, m_fragmentShader};
-        pipelineCI.vertexInputState.attributes = {{0, 0, GraphicsAPI::VertexType::VEC4, 0, "TEXCOORD"}};
-        pipelineCI.vertexInputState.bindings = {{0, 0, 4 * sizeof(float)}};
-        pipelineCI.inputAssemblyState = {GraphicsAPI::PrimitiveTopology::TRIANGLE_LIST, false};
-        pipelineCI.rasterisationState = {false, false, GraphicsAPI::PolygonMode::FILL, GraphicsAPI::CullMode::BACK, GraphicsAPI::FrontFace::COUNTER_CLOCKWISE, false, 0.0f, 0.0f, 0.0f, 1.0f};
-        pipelineCI.multisampleState = {1, false, 1.0f, 0xFFFFFFFF, false, false};
-        pipelineCI.depthStencilState = {true, true, GraphicsAPI::CompareOp::LESS_OR_EQUAL, false, false, {}, {}, 0.0f, 1.0f};
-        pipelineCI.colorBlendState = {false, GraphicsAPI::LogicOp::NO_OP, {{true, GraphicsAPI::BlendFactor::SRC_ALPHA, GraphicsAPI::BlendFactor::ONE_MINUS_SRC_ALPHA, GraphicsAPI::BlendOp::ADD, GraphicsAPI::BlendFactor::ONE, GraphicsAPI::BlendFactor::ZERO, GraphicsAPI::BlendOp::ADD, (GraphicsAPI::ColorComponentBit)15}}, {0.0f, 0.0f, 0.0f, 0.0f}};
-        pipelineCI.colorFormats = {m_colorSwapchainInfos[0].swapchainFormat};
-        pipelineCI.depthFormat = m_depthSwapchainInfos[0].swapchainFormat;
-        pipelineCI.layout = {{0, nullptr, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX},
-                             {1, nullptr, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX},
-                             {2, nullptr, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::FRAGMENT}};
-        m_pipeline = m_graphicsAPI->CreatePipeline(pipelineCI);
+        // EY SHADER STUFF
+        m_phongShader = new EYShader(m_graphicsAPI, "shaders/phong.vertex.glsl", "shaders/phong.fragment.glsl");
+        m_phongShader->CreateShaders(androidApp);
+        m_phongShader->CreatePipeline(m_colorSwapchainInfos, m_depthSwapchainInfos);
     }
     void DestroyResources()
     {
-        m_graphicsAPI->DestroyPipeline(m_pipeline);
-        m_graphicsAPI->DestroyShader(m_fragmentShader);
-        m_graphicsAPI->DestroyShader(m_vertexShader);
+        delete m_phongShader;
         m_graphicsAPI->DestroyBuffer(m_uniformBuffer_Camera);
         m_graphicsAPI->DestroyBuffer(m_uniformBuffer_Normals);
         m_graphicsAPI->DestroyBuffer(m_indexBuffer);
@@ -739,7 +717,7 @@ private:
     XrSystemProperties m_systemProperties = {XR_TYPE_SYSTEM_PROPERTIES};
 
     GraphicsAPI_Type m_apiType = UNKNOWN;
-    std::unique_ptr<GraphicsAPI> m_graphicsAPI = nullptr;
+    GraphicsAPI* m_graphicsAPI = nullptr;
 
     XrSession m_session = XR_NULL_HANDLE;
     XrSessionState m_sessionState = XR_SESSION_STATE_UNKNOWN;
@@ -752,11 +730,7 @@ private:
     XrViewConfigurationType m_viewConfiguration = XR_VIEW_CONFIGURATION_TYPE_MAX_ENUM;
     std::vector<XrViewConfigurationView> m_viewConfigurationViews;
 
-    struct SwapchainInfo {
-        XrSwapchain swapchain = XR_NULL_HANDLE;
-        int64_t swapchainFormat = 0;
-        std::vector<void *> imageViews;
-    };
+
     std::vector<SwapchainInfo> m_colorSwapchainInfos = {};
     std::vector<SwapchainInfo> m_depthSwapchainInfos = {};
 
@@ -772,9 +746,7 @@ private:
     void *m_indexBuffer = nullptr;
     void *m_uniformBuffer_Camera = nullptr;
     void *m_uniformBuffer_Normals = nullptr;
-    void *m_vertexShader = nullptr, *m_fragmentShader = nullptr;
-    void *m_pipeline = nullptr;
-    
+
 public:
     // Stored pointer to the android_app structure from android_main().
     static android_app *androidApp;
