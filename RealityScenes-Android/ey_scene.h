@@ -6,10 +6,6 @@
 #include <xr_linear_algebra.h>
 #include "ey_shared.h"
 
-class EYScene {
-
-};
-
 class EYShader {
 public:
     std::string vertexShaderFilepath;
@@ -26,5 +22,34 @@ public:
     void CreatePipeline(std::vector<SwapchainInfo> colorSwapchainInfos, std::vector<SwapchainInfo> depthSwapchainInfos);
 };
 
+class EYMesh {
+public:
+    EYShader* shader;
+    GraphicsAPI* graphicsApi;
+    void* vertexBuffer;
+    void* indexBuffer;
+    uint numTriangles;
 
-#endif //REAITYSCENES_EY_SCENE_H 
+    EYMesh(
+            GraphicsAPI* graphicsApi,
+            EYShader *shader,
+            float *vertices,
+            uint numVertices,
+            uint32_t *indices,
+            uint numTriangles,
+            float *normals
+        );
+    ~EYMesh();
+    void Render(XrPosef pose, XrVector3f scale, XrVector3f color);
+};
+
+class EYScene {
+public:
+    std::vector<EYMesh*> meshes;
+    EYScene(std::vector<EYMesh*> meshes);
+    ~EYScene();
+};
+
+
+
+#endif //REAITYSCENES_EY_SCENE_H

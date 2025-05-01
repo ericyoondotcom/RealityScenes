@@ -41,7 +41,7 @@ public:
         while (m_applicationRunning) {
             PollSystemEvents();
             PollEvents();
-            std::cout <<( m_sessionRunning ? "Session running" : "Session not running") << std::endl;
+//            std::cout <<( m_sessionRunning ? "Session running" : "Session not running") << std::endl;
             if (m_sessionRunning) {
                 RenderFrame();
             }
@@ -58,6 +58,7 @@ public:
 
 private:
     EYShader* m_phongShader;
+    EYScene* currentScene;
 
     struct RenderLayerInfo {
         XrTime predictedDisplayTime;
@@ -66,7 +67,6 @@ private:
         std::vector<XrCompositionLayerProjectionView> layerProjectionViews;
     };
 
-    size_t renderCuboidIndex = 0;
 
     void CreateInstance() {
         XrApplicationInfo AI;
@@ -558,7 +558,7 @@ private:
 
             if (m_environmentBlendMode == XR_ENVIRONMENT_BLEND_MODE_OPAQUE) {
                 // VR mode use a background color.
-                m_graphicsAPI->ClearColor(colorSwapchainInfo.imageViews[colorImageIndex], 0.17f, 0.17f, 0.17f, 1.00f);
+                m_graphicsAPI->ClearColor(colorSwapchainInfo.imageViews[colorImageIndex], 0.39f, 0.58f, 0.93f, 1.00f);
             } else {
                 // In AR mode make the background color black.
                 m_graphicsAPI->ClearColor(colorSwapchainInfo.imageViews[colorImageIndex], 0.00f, 0.00f, 0.00f, 1.00f);
@@ -582,12 +582,8 @@ private:
             XrMatrix4x4f_Multiply(&cameraConstants.viewProj, &proj, &view);
 
 
-            // RENDER OUR CUBOID
-            renderCuboidIndex = 0;
-            // Draw a floor. Scale it by 2 in the X and Z, and 0.1 in the Y,
-            RenderCuboid({{0.0f, 0.0f, 0.0f, 1.0f}, {0.0f, -m_viewHeightM, 0.0f}}, {2.0f, 0.1f, 2.0f}, {0.4f, 0.5f, 0.5f});
-            // Draw a "table".
-            RenderCuboid({{0.0f, 0.0f, 0.0f, 1.0f}, {0.0f, -m_viewHeightM + 0.9f, -0.7f}}, {1.0f, 0.2f, 1.0f}, {0.6f, 0.6f, 0.4f});
+            // EY RENDER OUR SCENE
+            RenderScene({{0.0f, 0.0f, 0.0f, 1.0f}, {0.0f, -m_viewHeightM + 0.9f, -0.7f}});
 
 
             m_graphicsAPI->EndRendering();
@@ -606,37 +602,38 @@ private:
 
         return true;
     }
-    void RenderCuboid(XrPosef pose, XrVector3f scale, XrVector3f color)
+    void RenderScene(XrPosef pose)
     {
+        // TODO move these into the model
+        // In fact, move everything here into a Render() function in the model
+        XrVector3f scale = {10.0f, 10.0f, 10.0f};
+
         XrMatrix4x4f_CreateTranslationRotationScale(&cameraConstants.model, &pose.position, &pose.orientation, &scale);
 
         XrMatrix4x4f_Multiply(&cameraConstants.modelViewProj, &cameraConstants.viewProj, &cameraConstants.model);
-        cameraConstants.color = {color.x, color.y, color.z, 1.0};
-        size_t offsetCameraUB = sizeof(CameraConstants) * renderCuboidIndex;
 
-        m_graphicsAPI->SetPipeline(m_phongShader->pipeline);
+        int meshNum = 0;
 
-        m_graphicsAPI->SetBufferData(m_uniformBuffer_Camera, offsetCameraUB, sizeof(CameraConstants), &cameraConstants);
-        m_graphicsAPI->SetDescriptor({0, m_uniformBuffer_Camera, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX, false, offsetCameraUB, sizeof(CameraConstants)});
-        m_graphicsAPI->SetDescriptor({1, m_uniformBuffer_Normals, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX, false, 0, sizeof(normals)});
+        for(EYMesh* mesh : currentScene->meshes) {
+            m_graphicsAPI->SetPipeline(mesh->shader->pipeline);
 
-        m_graphicsAPI->UpdateDescriptors();
+            m_graphicsAPI->SetBufferData(m_uniformBuffer_Camera, 0, sizeof(CameraConstants), &cameraConstants);
+            m_graphicsAPI->SetDescriptor({0, m_uniformBuffer_Camera, GraphicsAPI::DescriptorInfo::Type::BUFFER, GraphicsAPI::DescriptorInfo::Stage::VERTEX, false, 0, sizeof(CameraConstants)});
 
-        m_graphicsAPI->SetVertexBuffers(&m_vertexBuffer, 1);
-        m_graphicsAPI->SetIndexBuffer(m_indexBuffer);
-        m_graphicsAPI->DrawIndexed(36);
+            m_graphicsAPI->UpdateDescriptors();
 
-        renderCuboidIndex++;
+            m_graphicsAPI->SetVertexBuffers(&mesh->vertexBuffer, 1);
+            m_graphicsAPI->SetIndexBuffer(mesh->indexBuffer);
+            m_graphicsAPI->DrawIndexed(mesh->numTriangles * 3);
+
+            meshNum++;
+        }
     }
 
     struct CameraConstants {
         XrMatrix4x4f viewProj;
         XrMatrix4x4f modelViewProj;
         XrMatrix4x4f model;
-        XrVector4f color;
-        XrVector4f pad1;
-        XrVector4f pad2;
-        XrVector4f pad3;
     };
     CameraConstants cameraConstants;
     XrVector4f normals[6] = {
@@ -649,58 +646,70 @@ private:
 
     void CreateResources()
     {
-        // Vertices for a 1x1x1 meter cube. (Left/Right, Top/Bottom, Front/Back)
-        constexpr XrVector4f vertexPositions[] = {
-                {+0.5f, +0.5f, +0.5f, 1.0f},
-                {+0.5f, +0.5f, -0.5f, 1.0f},
-                {+0.5f, -0.5f, +0.5f, 1.0f},
-                {+0.5f, -0.5f, -0.5f, 1.0f},
-                {-0.5f, +0.5f, +0.5f, 1.0f},
-                {-0.5f, +0.5f, -0.5f, 1.0f},
-                {-0.5f, -0.5f, +0.5f, 1.0f},
-                {-0.5f, -0.5f, -0.5f, 1.0f}};
-
-#define CUBE_FACE(V1, V2, V3, V4, V5, V6) vertexPositions[V1], vertexPositions[V2], vertexPositions[V3], vertexPositions[V4], vertexPositions[V5], vertexPositions[V6],
-
-        XrVector4f cubeVertices[] = {
-                CUBE_FACE(2, 1, 0, 2, 3, 1)  // -X
-                CUBE_FACE(6, 4, 5, 6, 5, 7)  // +X
-                CUBE_FACE(0, 1, 5, 0, 5, 4)  // -Y
-                CUBE_FACE(2, 6, 7, 2, 7, 3)  // +Y
-                CUBE_FACE(0, 4, 6, 0, 6, 2)  // -Z
-                CUBE_FACE(1, 3, 7, 1, 7, 5)  // +Z
-        };
-
-        uint32_t cubeIndices[36] = {
-                0, 1, 2, 3, 4, 5,        // -X
-                6, 7, 8, 9, 10, 11,      // +X
-                12, 13, 14, 15, 16, 17,  // -Y
-                18, 19, 20, 21, 22, 23,  // +Y
-                24, 25, 26, 27, 28, 29,  // -Z
-                30, 31, 32, 33, 34, 35,  // +Z
-        };
-
-        m_vertexBuffer = m_graphicsAPI->CreateBuffer({GraphicsAPI::BufferCreateInfo::Type::VERTEX, sizeof(float) * 4, sizeof(cubeVertices), &cubeVertices});
-
-        m_indexBuffer = m_graphicsAPI->CreateBuffer({GraphicsAPI::BufferCreateInfo::Type::INDEX, sizeof(uint32_t), sizeof(cubeIndices), &cubeIndices});
-
-        size_t numberOfCuboids = 2;
-        m_uniformBuffer_Camera = m_graphicsAPI->CreateBuffer({GraphicsAPI::BufferCreateInfo::Type::UNIFORM, 0, sizeof(CameraConstants) * numberOfCuboids, nullptr});
-        m_uniformBuffer_Normals = m_graphicsAPI->CreateBuffer({GraphicsAPI::BufferCreateInfo::Type::UNIFORM, 0, sizeof(normals), &normals});
+        m_uniformBuffer_Camera = m_graphicsAPI->CreateBuffer({GraphicsAPI::BufferCreateInfo::Type::UNIFORM, 0, sizeof(CameraConstants), nullptr});
 
 
-        // EY SHADER STUFF
+        // EY GENERATE SHADERS
         m_phongShader = new EYShader(m_graphicsAPI, "shaders/phong.vertex.glsl", "shaders/phong.fragment.glsl");
         m_phongShader->CreateShaders(androidApp);
         m_phongShader->CreatePipeline(m_colorSwapchainInfos, m_depthSwapchainInfos);
+
+        XR_TUT_LOG("Created pipelines!");
+
+        // EY GENERATE SCENE
+        float* cubeVertices = new float[24] {
+            -1, -1, -1,
+            1, -1, -1,
+            1, 1, -1,
+            -1, 1, -1,
+            -1, -1, 1,
+            1, -1, 1,
+            1, 1, 1,
+            -1, 1, 1
+        };
+        uint32_t* cubeIndices = new uint32_t[36] {
+            0, 1, 2,
+            0, 2, 3,
+            4, 5, 6,
+            4, 6, 7,
+            0, 1, 5,
+            0, 5, 4,
+            1, 2, 6,
+            1, 6, 5,
+            2, 3, 7,
+            2, 7, 6,
+            3, 0, 4,
+            3, 4, 7
+        };
+        float* cubeNormals = new float[24] {
+            0, 0, -1,
+            0, 0, -1,
+            0, 0, -1,
+            0, 0, -1,
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1,
+            0, 0, 1
+        };
+
+        std::vector<EYMesh*> meshes = {
+            new EYMesh(
+                    m_graphicsAPI,
+                    m_phongShader,
+                    cubeVertices,
+                    8,
+                    cubeIndices,
+                    12,
+                    cubeNormals
+            )
+        };
+
+        currentScene = new EYScene(meshes);
     }
     void DestroyResources()
     {
         delete m_phongShader;
         m_graphicsAPI->DestroyBuffer(m_uniformBuffer_Camera);
-        m_graphicsAPI->DestroyBuffer(m_uniformBuffer_Normals);
-        m_graphicsAPI->DestroyBuffer(m_indexBuffer);
-        m_graphicsAPI->DestroyBuffer(m_vertexBuffer);
     }
 private:
 
@@ -742,10 +751,7 @@ private:
 
     float m_viewHeightM = 1.5f;
 
-    void *m_vertexBuffer = nullptr;
-    void *m_indexBuffer = nullptr;
     void *m_uniformBuffer_Camera = nullptr;
-    void *m_uniformBuffer_Normals = nullptr;
 
 public:
     // Stored pointer to the android_app structure from android_main().
@@ -798,7 +804,6 @@ public:
 
 void OpenXRTutorial_Main(GraphicsAPI_Type apiType) {
     DebugOutput debugOutput;  // This redirects std::cerr and std::cout to the IDE's output or Android Studio's logcat.
-    XR_TUT_LOG("OpenXR Tutorial Chapter 1");
 
     OpenXRTutorial app(apiType);
     app.Run();

@@ -1,4 +1,5 @@
 #include "ey_scene.h"
+#include "DebugOutput.h"
 
 #include <utility>
 
@@ -9,10 +10,18 @@ EYShader::EYShader(GraphicsAPI* graphicsApi, std::string vertexShaderFilepath, s
 }
 
 void EYShader::CreateShaders(android_app* androidApp) {
-    std::string vertexSource = ReadTextFile("shaders/VertexShader_GLES.glsl", androidApp->activity->assetManager);
+    XR_TUT_LOG(vertexShaderFilepath);
+    XR_TUT_LOG(fragmentShaderFilepath);
+    std::string vertexSource = ReadTextFile(vertexShaderFilepath, androidApp->activity->assetManager);
     vertexShader = graphicsApi->CreateShader({GraphicsAPI::ShaderCreateInfo::Type::VERTEX, vertexSource.data(), vertexSource.size()});
-    std::string fragmentSource = ReadTextFile("shaders/PixelShader_GLES.glsl", androidApp->activity->assetManager);
+    std::string fragmentSource = ReadTextFile(fragmentShaderFilepath, androidApp->activity->assetManager);
     fragmentShader = graphicsApi->CreateShader({GraphicsAPI::ShaderCreateInfo::Type::FRAGMENT, fragmentSource.data(), fragmentSource.size()});
+
+    // log whether the vertex sahder is null
+    XR_TUT_LOG(vertexSource.data());
+    XR_TUT_LOG(fragmentSource.data());
+    XR_TUT_LOG("Vertex shader: " + std::to_string(vertexShader == nullptr));
+    XR_TUT_LOG("Fragment shader: " + std::to_string(fragmentShader == nullptr));
 }
 
 void EYShader::CreatePipeline(std::vector<SwapchainInfo> colorSwapchainInfos, std::vector<SwapchainInfo> depthSwapchainInfos) {
@@ -37,4 +46,66 @@ EYShader::~EYShader() {
     graphicsApi->DestroyPipeline(pipeline);
     graphicsApi->DestroyShader(fragmentShader);
     graphicsApi->DestroyShader(vertexShader);
+}
+
+EYMesh::EYMesh(
+        GraphicsAPI* graphicsApi,
+        EYShader *shader,
+        float *vertices,
+        uint numVertices,
+        uint32_t *indices,
+        uint numTriangles,
+        float *normals
+) {
+    this->numTriangles = numTriangles;
+    this->graphicsApi = graphicsApi;
+    this->shader = shader;
+
+    float* allData = new float[numVertices * 6];
+    for(int i = 0; i < numVertices; i++) {
+        allData[i * 6 + 0] = vertices[i + 0];
+        allData[i * 6 + 1] = vertices[i + 1];
+        allData[i * 6 + 2] = vertices[i + 2];
+        allData[i * 6 + 3] = normals[i + 0];
+        allData[i * 6 + 4] = normals[i + 1];
+        allData[i * 6 + 5] = normals[i + 2];
+    }
+
+    vertexBuffer = graphicsApi->CreateBuffer({
+        GraphicsAPI::BufferCreateInfo::Type::VERTEX,
+        sizeof(float) * 4,
+        numVertices * 6,
+        allData // TODO: do we need "&"?
+    });
+    indexBuffer = graphicsApi->CreateBuffer({
+        GraphicsAPI::BufferCreateInfo::Type::INDEX,
+        sizeof(uint32_t),
+        numTriangles * 3,
+        indices
+    });
+
+    delete[] allData;
+}
+
+void EYMesh::Render(XrPosef pose, XrVector3f scale, XrVector3f color) {
+
+}
+
+EYMesh::~EYMesh() {
+    graphicsApi->DestroyBuffer(indexBuffer);
+    graphicsApi->DestroyBuffer(vertexBuffer);
+}
+
+EYScene::EYScene(std::vector<EYMesh *> meshes) {
+    this->meshes = std::move(meshes);
+}
+
+EYScene::~EYScene() {
+    // Destroy all meshes in the vector
+    for (auto mesh : meshes) {
+        delete mesh;
+    }
+    meshes.clear();
+    // Destroy the vector itself
+    meshes.~vector();
 }
